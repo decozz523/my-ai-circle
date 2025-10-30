@@ -1,11 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export default function Home() {
-  // --- ДАННЫЕ ПОЛЬЗОВАТЕЛЯ ---
-  const [userName, setUserName] = useState('Даниил Камаев');
-  const [theme, setTheme] = useState('light'); // 'light', 'dark', 'auto'
-
-  // --- ЧАТЫ ---
+  const [userName, setUserName] = useState('Даниил Камаev');
+  const [theme, setTheme] = useState('light');
   const [chats, setChats] = useState([]);
   const [activeChatId, setActiveChatId] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -13,6 +10,13 @@ export default function Home() {
   const [isTyping, setIsTyping] = useState(false);
   const [showChatList, setShowChatList] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+
+  const messagesEndRef = useRef(null);
+
+  // Прокрутка вниз при новых сообщениях
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isTyping]);
 
   // Загрузка настроек
   useEffect(() => {
@@ -43,7 +47,6 @@ export default function Home() {
         setMessages(parsed[0].messages);
       }
     } else {
-      // Первое приветствие от Heso!
       const welcomeMessage = {
         role: 'ai',
         content: `Привет, Даниил! 👋\nЯ — Heso. Я здесь, чтобы помогать, отвечать на вопросы и иногда дарить хорошее настроение 😊\nО чём поговорим?`
@@ -103,7 +106,6 @@ export default function Home() {
     setInput('');
     setIsTyping(true);
 
-    // Обновляем заголовок чата
     if (newMessages.length === 1 && !chats.find(c => c.id === activeChatId)?.title?.includes('Добро пожаловать')) {
       const title = input.substring(0, 30) + (input.length > 30 ? '...' : '');
       const updated = chats.map(chat =>
@@ -160,12 +162,12 @@ export default function Home() {
   const activeChat = chats.find(c => c.id === activeChatId) || { title: 'Чат' };
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
-  // Цвета в зависимости от темы
   const bgColor = theme === 'dark' ? '#000' : '#f5f5f7';
   const headerBg = theme === 'dark' ? '#111' : 'white';
   const chatBg = theme === 'dark' ? '#111' : 'white';
   const inputBg = theme === 'dark' ? '#222' : 'white';
   const textColor = theme === 'dark' ? '#fff' : '#000';
+  const borderColor = theme === 'dark' ? '#333' : '#e0e0e0';
   const userMsgBg = '#007AFF';
   const aiMsgBg = theme === 'dark' ? '#222' : '#e5e5ea';
   const aiMsgColor = theme === 'dark' ? '#fff' : '#000';
@@ -174,7 +176,7 @@ export default function Home() {
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: bgColor, color: textColor, fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif', overflow: 'hidden' }}>
       
       {/* Шапка */}
-      <div style={{ padding: '12px 16px', backgroundColor: headerBg, borderBottom: `1px solid ${theme === 'dark' ? '#333' : '#e0e0e0'}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ padding: '12px 16px', backgroundColor: headerBg, borderBottom: `1px solid ${borderColor}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         {isMobile ? (
           <button
             onClick={() => setShowChatList(true)}
@@ -194,26 +196,24 @@ export default function Home() {
           <div style={{ fontSize: '16px', fontWeight: '600' }}>{activeChat.title}</div>
         )}
         
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button
-            onClick={() => setShowSettings(true)}
-            style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: '50%',
-              backgroundColor: theme === 'dark' ? '#222' : '#f0f0f0',
-              border: 'none',
-              fontSize: '18px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              color: theme === 'dark' ? '#aaa' : '#555',
-            }}
-          >
-            ⚙️
-          </button>
-        </div>
+        <button
+          onClick={() => setShowSettings(true)}
+          style={{
+            width: '36px',
+            height: '36px',
+            borderRadius: '50%',
+            backgroundColor: theme === 'dark' ? '#222' : '#f0f0f0',
+            border: 'none',
+            fontSize: '18px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            color: theme === 'dark' ? '#aaa' : '#555',
+          }}
+        >
+          ⚙️
+        </button>
       </div>
 
       {/* Основная область */}
@@ -247,11 +247,11 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Чат */}
+        {/* Чат — теперь с ограничением высоты и прокруткой */}
         <div style={{
           flex: 1,
           paddingTop: messages.length > 0 ? '100px' : '0',
-          paddingBottom: '20px',
+          paddingBottom: '80px', // ← место для поля ввода
           paddingLeft: '16px',
           paddingRight: '16px',
           overflowY: 'auto',
@@ -290,10 +290,19 @@ export default function Home() {
               </div>
             </div>
           )}
+          <div ref={messagesEndRef} />
         </div>
 
-        {/* Поле ввода */}
-        <div style={{ padding: '12px 16px', borderTop: `1px solid ${theme === 'dark' ? '#333' : '#e0e0e0'}`, backgroundColor: chatBg }}>
+        {/* Поле ввода — теперь прижато к низу */}
+        <div style={{ 
+          position: 'absolute', 
+          bottom: 0, 
+          left: 0, 
+          right: 0, 
+          padding: '12px 16px', 
+          borderTop: `1px solid ${borderColor}`, 
+          backgroundColor: chatBg 
+        }}>
           <div style={{ display: 'flex', gap: '8px' }}>
             <input
               value={input}
@@ -331,7 +340,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Модалка: список чатов (мобильная) */}
+      {/* Модалка чатов */}
       {isMobile && showChatList && (
         <>
           <div onClick={() => setShowChatList(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.3)', zIndex: 1000 }} />
@@ -364,11 +373,11 @@ export default function Home() {
         </>
       )}
 
-      {/* Модалка: настройки (личный кабинет) */}
+      {/* Модалка настроек */}
       {showSettings && (
         <>
           <div onClick={() => setShowSettings(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.3)', zIndex: 2000 }} />
-          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: isMobile ? '90%' : '400px', backgroundColor: chatBg, borderRadius: '20px', padding: '24px', zIndex: 2001, maxHeight: '80vh', overflowY: 'auto', border: `1px solid ${theme === 'dark' ? '#333' : '#e0e0e0'}` }}>
+          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: isMobile ? '90%' : '400px', backgroundColor: chatBg, borderRadius: '20px', padding: '24px', zIndex: 2001, maxHeight: '80vh', overflowY: 'auto', border: `1px solid ${borderColor}` }}>
             <h2 style={{ fontSize: '20px', fontWeight: '700', marginBottom: '20px', textAlign: 'center' }}>Личный кабинет</h2>
             
             <div style={{ marginBottom: '20px' }}>
