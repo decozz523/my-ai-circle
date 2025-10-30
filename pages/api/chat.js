@@ -21,7 +21,7 @@ export default async function handler(req, res) {
         'X-Title': 'My AI Circle',
       },
       body: JSON.stringify({
-        model: 'openai/gpt-4o-mini', // лёгкая и бесплатная модель
+        model: 'qwen/qwen3-235b-a22b:free', // лёгкая и бесплатная модель
         messages: openRouterMessages,
       }),
     });
