@@ -50,7 +50,7 @@ export default async function handler(req, res) {
         'X-Title': 'Heso AI by Daniil Kamaev',
       },
       body: JSON.stringify({
-        model: 'openai/gpt-4o-mini', // отлично подходит для персонализации
+        model: 'qwen/qwen3-235b-a22b:free', // отлично подходит для персонализации
         messages: openRouterMessages,
       }),
     });
