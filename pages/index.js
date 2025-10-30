@@ -5,18 +5,36 @@ export default function Home() {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!input.trim()) return;
+
     const userMsg = { role: 'user', content: input };
-    setMessages([...messages, userMsg]);
+    const newMessages = [...messages, userMsg];
+    setMessages(newMessages);
     setInput('');
     setIsTyping(true);
 
-    setTimeout(() => {
-      const aiMsg = { role: 'ai', content: 'Привет! Я — ИИ. Пока я не настоящий, но скоро будет!' };
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: newMessages }),
+      });
+
+      const data = await response.json();
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      const aiMsg = { role: 'ai', content: data.choices[0].message.content };
       setMessages(prev => [...prev, aiMsg]);
+    } catch (error) {
+      console.error('Ошибка:', error);
+      const errorMsg = { role: 'ai', content: 'Не удалось получить ответ от ИИ. Попробуй позже.' };
+      setMessages(prev => [...prev, errorMsg]);
+    } finally {
       setIsTyping(false);
-    }, 1500);
+    }
   };
 
   return (
@@ -27,9 +45,9 @@ export default function Home() {
           style={{
             width: '128px',
             height: '128px',
-            borderRadius: '50%',
-            backgroundColor: isTyping ? '#bbb' : '#ddd',
-            transition: 'background-color 0.3s, transform 0.3s',
+            borderRadius: isTyping ? '40%' : '50%',
+            backgroundColor: isTyping ? '#999' : '#ddd',
+            transition: 'border-radius 0.4s, background-color 0.3s, transform 0.3s',
             transform: isTyping ? 'scale(1.1)' : 'scale(1)',
           }}
         />
@@ -46,7 +64,6 @@ export default function Home() {
                 margin: '4px 0',
                 backgroundColor: msg.role === 'user' ? '#e0f7fa' : '#f5f5f5',
                 borderRadius: '8px',
-                alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
                 maxWidth: '80%',
                 marginLeft: msg.role === 'user' ? '20%' : '0',
               }}
@@ -56,7 +73,7 @@ export default function Home() {
           ))}
           {isTyping && (
             <div style={{ padding: '8px 12px', backgroundColor: '#f5f5f5', borderRadius: '8px', maxWidth: '80%' }}>
-              ...
+              ИИ думает...
             </div>
           )}
         </div>
