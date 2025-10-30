@@ -1,16 +1,14 @@
 import { useState, useEffect } from 'react';
 
 export default function Home() {
-  // Все чаты
   const [chats, setChats] = useState([]);
-  // Текущий активный чат
   const [activeChatId, setActiveChatId] = useState(null);
-  // Сообщения текущего чата
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [showChatList, setShowChatList] = useState(false); // для мобильной модалки
 
-  // Загружаем чаты из localStorage при старте
+  // Загрузка чатов
   useEffect(() => {
     const saved = localStorage.getItem('ai-chats');
     if (saved) {
@@ -21,30 +19,23 @@ export default function Home() {
         setMessages(parsed[0].messages);
       }
     } else {
-      // Создаём первый чат
-      const newChat = {
-        id: Date.now().toString(),
-        title: 'Новый чат',
-        messages: [],
-        createdAt: new Date().toISOString(),
-      };
+      const newChat = { id: Date.now().toString(), title: 'Новый чат', messages: [], createdAt: new Date().toISOString() };
       setChats([newChat]);
       setActiveChatId(newChat.id);
     }
   }, []);
 
-  // Сохраняем чаты при изменении
+  // Сохранение
   useEffect(() => {
-    if (activeChatId && chats.length > 0) {
-      const updatedChats = chats.map(chat =>
+    if (activeChatId) {
+      const updated = chats.map(chat =>
         chat.id === activeChatId ? { ...chat, messages } : chat
       );
-      setChats(updatedChats);
-      localStorage.setItem('ai-chats', JSON.stringify(updatedChats));
+      setChats(updated);
+      localStorage.setItem('ai-chats', JSON.stringify(updated));
     }
-  }, [messages, activeChatId, chats]);
+  }, [messages, activeChatId]);
 
-  // Создать новый чат
   const createNewChat = () => {
     const newChat = {
       id: Date.now().toString(),
@@ -56,9 +47,18 @@ export default function Home() {
     setChats(updated);
     setActiveChatId(newChat.id);
     setMessages([]);
+    setShowChatList(false);
   };
 
-  // Отправка сообщения
+  const switchChat = (chatId) => {
+    const chat = chats.find(c => c.id === chatId);
+    if (chat) {
+      setActiveChatId(chatId);
+      setMessages(chat.messages);
+      setShowChatList(false);
+    }
+  };
+
   const handleSend = async () => {
     if (!input.trim() || isTyping) return;
 
@@ -68,15 +68,14 @@ export default function Home() {
     setInput('');
     setIsTyping(true);
 
-    // Обновляем заголовок чата (берём первые 30 символов)
+    // Обновляем заголовок
     if (newMessages.length === 1) {
-      const updatedChats = chats.map(chat =>
-        chat.id === activeChatId
-          ? { ...chat, title: input.substring(0, 30) + (input.length > 30 ? '...' : '') }
-          : chat
+      const title = input.substring(0, 30) + (input.length > 30 ? '...' : '');
+      const updated = chats.map(chat =>
+        chat.id === activeChatId ? { ...chat, title } : chat
       );
-      setChats(updatedChats);
-      localStorage.setItem('ai-chats', JSON.stringify(updatedChats));
+      setChats(updated);
+      localStorage.setItem('ai-chats', JSON.stringify(updated));
     }
 
     try {
@@ -85,139 +84,131 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: newMessages }),
       });
-
       const data = await response.json();
       if (data.error) throw new Error(data.error);
-
       const aiMsg = { role: 'ai', content: data.choices[0].message.content };
       setMessages(prev => [...prev, aiMsg]);
     } catch (error) {
-      const errorMsg = { role: 'ai', content: 'Не удалось получить ответ. Попробуй позже.' };
-      setMessages(prev => [...prev, errorMsg]);
+      setMessages(prev => [...prev, { role: 'ai', content: 'Ошибка. Попробуй позже.' }]);
     } finally {
       setIsTyping(false);
     }
   };
 
-  // Переключение чата
-  const switchChat = (chatId) => {
-    const chat = chats.find(c => c.id === chatId);
-    if (chat) {
-      setActiveChatId(chatId);
-      setMessages(chat.messages);
-    }
-  };
-
   const activeChat = chats.find(c => c.id === activeChatId) || { title: 'Чат' };
 
+  // Определяем, мобильное ли устройство
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+
   return (
-    <div style={{ height: '100vh', display: 'flex', backgroundColor: '#f5f5f7', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}>
-      {/* Боковая панель — как в Messages на iPhone */}
-      <div style={{ width: '280px', backgroundColor: 'white', borderRight: '1px solid #e0e0e0', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ padding: '16px', borderBottom: '1px solid #f0f0f0' }}>
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#f5f5f7', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif', overflow: 'hidden' }}>
+      
+      {/* Шапка */}
+      <div style={{ padding: '12px 16px', backgroundColor: 'white', borderBottom: '1px solid #e0e0e0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        {isMobile ? (
           <button
-            onClick={createNewChat}
+            onClick={() => setShowChatList(true)}
             style={{
-              width: '100%',
-              padding: '10px',
-              backgroundColor: '#007AFF',
-              color: 'white',
-              border: 'none',
+              padding: '6px 12px',
+              border: '1px solid #007AFF',
+              color: '#007AFF',
+              backgroundColor: 'white',
               borderRadius: '8px',
               fontSize: '14px',
               fontWeight: '600',
-              cursor: 'pointer',
             }}
           >
-            + Новый чат
+            Чаты ({chats.length})
           </button>
-        </div>
-        <div style={{ flex: 1, overflowY: 'auto' }}>
-          {chats.map(chat => (
-            <div
-              key={chat.id}
-              onClick={() => switchChat(chat.id)}
-              style={{
-                padding: '14px 16px',
-                borderBottom: '1px solid #f5f5f5',
-                backgroundColor: activeChatId === chat.id ? '#f0f7ff' : 'white',
-                cursor: 'pointer',
-                fontSize: '15px',
-                fontWeight: activeChatId === chat.id ? '600' : 'normal',
-                color: activeChatId === chat.id ? '#007AFF' : '#000',
-              }}
-            >
-              {chat.title}
-            </div>
-          ))}
-        </div>
+        ) : (
+          <div style={{ fontSize: '16px', fontWeight: '600' }}>{activeChat.title}</div>
+        )}
+        <button
+          onClick={createNewChat}
+          style={{
+            padding: '6px 12px',
+            backgroundColor: '#007AFF',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            fontSize: '14px',
+            fontWeight: '600',
+          }}
+        >
+          + Новый
+        </button>
       </div>
 
-      {/* Основная область: круг + чат */}
+      {/* Основная область */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
-        {/* Круг по центру (только если нет сообщений) */}
-        {messages.length === 0 && (
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div
-              style={{
-                width: '120px',
-                height: '120px',
-                borderRadius: isTyping ? '40%' : '50%',
-                backgroundColor: isTyping ? '#999' : '#ccc',
-                transition: 'border-radius 0.4s, background-color 0.3s, transform 0.3s',
-                transform: isTyping ? 'scale(1.1)' : 'scale(1)',
-              }}
-            />
-          </div>
-        )}
+        
+        {/* Круг — всегда виден, но ведёт себя умно */}
+        <div style={{
+          position: 'absolute',
+          top: messages.length > 0 ? '40px' : '50%',
+          left: '50%',
+          transform: messages.length > 0 ? 'translate(-50%, 0)' : 'translate(-50%, -50%)',
+          zIndex: 10,
+          transition: 'top 0.4s, transform 0.4s',
+        }}>
+          <div
+            style={{
+              width: messages.length > 0 ? '60px' : '120px',
+              height: messages.length > 0 ? '60px' : '120px',
+              borderRadius: isTyping ? '40%' : '50%',
+              backgroundColor: isTyping ? '#666' : '#aaa',
+              transition: 'all 0.4s ease',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+            }}
+          />
+        </div>
 
-        {/* Чат (если есть сообщения) */}
-        {messages.length > 0 && (
-          <div style={{ flex: 1, padding: '20px', overflowY: 'auto' }}>
-            {messages.map((msg, i) => (
+        {/* Чат */}
+        <div style={{
+          flex: 1,
+          paddingTop: messages.length > 0 ? '100px' : '0',
+          paddingBottom: '20px',
+          paddingLeft: '16px',
+          paddingRight: '16px',
+          overflowY: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+        }}>
+          {messages.map((msg, i) => (
+            <div
+              key={i}
+              style={{
+                alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                maxWidth: '80%',
+                marginBottom: '12px',
+              }}
+            >
               <div
-                key={i}
                 style={{
-                  display: 'flex',
-                  justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                  marginBottom: '12px',
+                  padding: '10px 14px',
+                  borderRadius: '18px',
+                  backgroundColor: msg.role === 'user' ? '#007AFF' : '#e5e5ea',
+                  color: msg.role === 'user' ? 'white' : '#000',
+                  fontSize: '15px',
+                  lineHeight: 1.4,
+                  wordBreak: 'break-word',
                 }}
               >
-                <div
-                  style={{
-                    maxWidth: '80%',
-                    padding: '10px 14px',
-                    borderRadius: '18px',
-                    backgroundColor: msg.role === 'user' ? '#007AFF' : '#e5e5ea',
-                    color: msg.role === 'user' ? 'white' : '#000',
-                    fontSize: '15px',
-                    lineHeight: 1.4,
-                  }}
-                >
-                  {msg.content}
-                </div>
+                {msg.content}
               </div>
-            ))}
-            {isTyping && (
-              <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                <div
-                  style={{
-                    maxWidth: '80%',
-                    padding: '10px 14px',
-                    borderRadius: '18px',
-                    backgroundColor: '#e5e5ea',
-                    fontSize: '15px',
-                  }}
-                >
-                  ИИ думает...
-                </div>
+            </div>
+          ))}
+          {isTyping && (
+            <div style={{ alignSelf: 'flex-start', maxWidth: '80%' }}>
+              <div style={{ padding: '10px 14px', borderRadius: '18px', backgroundColor: '#e5e5ea', fontSize: '15px' }}>
+                ИИ думает...
               </div>
-            )}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
 
         {/* Поле ввода */}
-        <div style={{ padding: '12px 20px', borderTop: '1px solid #e0e0e0', backgroundColor: 'white' }}>
+        <div style={{ padding: '12px 16px', borderTop: '1px solid #e0e0e0', backgroundColor: 'white' }}>
           <div style={{ display: 'flex', gap: '8px' }}>
             <input
               value={input}
@@ -252,6 +243,76 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* Модальное окно со списком чатов (только на мобильном) */}
+      {isMobile && showChatList && (
+        <>
+          <div
+            onClick={() => setShowChatList(false)}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0,0,0,0.3)',
+              zIndex: 1000,
+            }}
+          />
+          <div
+            style={{
+              position: 'fixed',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              backgroundColor: 'white',
+              borderTopLeftRadius: '20px',
+              borderTopRightRadius: '20px',
+              maxHeight: '70vh',
+              zIndex: 1001,
+              padding: '16px 0',
+            }}
+          >
+            <div style={{ textAlign: 'center', color: '#888', fontSize: '14px', marginBottom: '12px' }}>
+              Мои чаты
+            </div>
+            <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+              {chats.map(chat => (
+                <div
+                  key={chat.id}
+                  onClick={() => switchChat(chat.id)}
+                  style={{
+                    padding: '14px 20px',
+                    borderBottom: '1px solid #f0f0f0',
+                    cursor: 'pointer',
+                    fontSize: '16px',
+                    backgroundColor: activeChatId === chat.id ? '#f0f7ff' : 'white',
+                    color: activeChatId === chat.id ? '#007AFF' : '#000',
+                  }}
+                >
+                  {chat.title}
+                </div>
+              ))}
+            </div>
+            <div style={{ padding: '16px', textAlign: 'center' }}>
+              <button
+                onClick={createNewChat}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: '#007AFF',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '12px',
+                  fontSize: '15px',
+                  fontWeight: '600',
+                }}
+              >
+                + Новый чат
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
